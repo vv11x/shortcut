@@ -19,6 +19,32 @@ from shortcut.file_actions import compress_paths, copy_paths, delete_to_recycle_
 from shortcut.models import AppSettings, Category, ShortcutEntry, path_key
 from shortcut.resources import category_icon
 from shortcut.shell import open_entry, show_in_explorer
+from shortcut.theme import get_menu_qss, get_panel_qss, get_search_popup_qss
+
+
+class DropHintLabel(QLabel):
+    def __init__(self, text: str, on_drop_paths, parent: QWidget | None = None):
+        super().__init__(text, parent)
+        self.on_drop_paths = on_drop_paths
+        self.setAcceptDrops(True)
+
+    def dragEnterEvent(self, event) -> None:
+        if event.mimeData().hasUrls():
+            event.setDropAction(Qt.CopyAction)
+            event.accept()
+
+    def dragMoveEvent(self, event) -> None:
+        if event.mimeData().hasUrls():
+            event.setDropAction(Qt.CopyAction)
+            event.accept()
+
+    def dropEvent(self, event) -> None:
+        if event.mimeData().hasUrls():
+            paths = [Path(url.toLocalFile()) for url in event.mimeData().urls() if url.isLocalFile()]
+            if paths:
+                self.on_drop_paths(paths)
+                event.setDropAction(Qt.CopyAction)
+                event.accept()
 
 
 class EntryListWidget(QListWidget):
@@ -31,6 +57,9 @@ class EntryListWidget(QListWidget):
         if event.mimeData().hasUrls():
             event.setDropAction(Qt.CopyAction)
             event.accept()
+            self.setProperty("drag_active", True)
+            self.style().unpolish(self)
+            self.style().polish(self)
             return
         super().dragEnterEvent(event)
 
@@ -41,7 +70,16 @@ class EntryListWidget(QListWidget):
             return
         super().dragMoveEvent(event)
 
+    def dragLeaveEvent(self, event) -> None:
+        self.setProperty("drag_active", False)
+        self.style().unpolish(self)
+        self.style().polish(self)
+        super().dragLeaveEvent(event)
+
     def dropEvent(self, event) -> None:
+        self.setProperty("drag_active", False)
+        self.style().unpolish(self)
+        self.style().polish(self)
         if event.mimeData().hasUrls():
             paths = [Path(url.toLocalFile()) for url in event.mimeData().urls() if url.isLocalFile()]
             self.on_drop_paths(paths)
@@ -70,6 +108,7 @@ class EntryPanel(QWidget):
     ):
         flags = Qt.Tool | Qt.WindowTitleHint if desktop_box else Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
         super().__init__(parent, flags)
+        self.setObjectName("entry_panel")
         self.category = category
         self.categories = categories
         self.settings = settings
@@ -88,27 +127,35 @@ class EntryPanel(QWidget):
         if desktop_box:
             self.setMinimumSize(220, 160)
         else:
-            self.setMinimumSize(300, 240)
+            self.setMinimumSize(320, 250)
         self.setStyleSheet(self.style_for(settings.theme))
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 10, 12, 12)
+        layout.setSpacing(8)
         header = QHBoxLayout()
         self.title_icon = QLabel()
         self.title_label = QLabel(category.title)
+        self.title_label.setObjectName("panel_title")
         self.title_icon.setPixmap(QIcon(str(category_icon(category.icon))).pixmap(24, 24))
-        self.title_label.setStyleSheet("font-size: 16px; font-weight: 600;")
         header.addWidget(self.title_icon)
         header.addWidget(self.title_label)
         header.addStretch()
         self.count_label = QLabel(str(len(entries)))
+        self.count_label.setObjectName("count_badge")
         header.addWidget(self.count_label)
         close_button = QPushButton("×")
-        close_button.setFixedSize(28, 28)
+        close_button.setObjectName("panel_close_button")
+        close_button.setFixedSize(26, 26)
         close_button.setToolTip("关闭分类面板")
         close_button.clicked.connect(self.close)
         header.addWidget(close_button)
         layout.addLayout(header)
+
+        self.empty_hint = DropHintLabel("暂无快捷方式\n可拖放文件到此处", self.drop_paths, self)
+        self.empty_hint.setObjectName("empty_hint")
+        self.empty_hint.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.empty_hint)
 
         self.items = EntryListWidget(self.drop_paths, self)
         self.items.setSelectionMode(QListWidget.ExtendedSelection)
@@ -128,20 +175,7 @@ class EntryPanel(QWidget):
 
     @staticmethod
     def style_for(theme: str) -> str:
-        if theme == "dark":
-            background, foreground, selection = "#20232b", "#f4f5fa", "#42495b"
-        elif theme == "light":
-            background, foreground, selection = "#f6f7fb", "#242936", "#dce5f6"
-        else:
-            raise ValueError(f"Unsupported theme: {theme}")
-        return (
-            f"QWidget {{ color: {foreground}; background: {background}; }}"
-            "QListWidget { border: 0; background: transparent; }"
-            f"QPushButton {{ color: {foreground}; background: transparent; border: 0; border-radius: 6px; }}"
-            f"QPushButton:hover {{ background: {selection}; }}"
-            f"QListWidget::item {{ min-height: 38px; padding: 6px; border-radius: 8px; }}"
-            f"QListWidget::item:selected {{ background: {selection}; }}"
-        )
+        return get_panel_qss(theme)
 
     def set_view_mode(self, mode: str) -> None:
         if mode == "icons":
@@ -162,11 +196,17 @@ class EntryPanel(QWidget):
         self.title_label.setText(self.category.title)
         self.title_icon.setPixmap(QIcon(str(category_icon(self.category.icon))).pixmap(24, 24))
         self.count_label.setText(str(len(entries)))
-        for entry in entries:
-            item = QListWidgetItem(provider.icon(QFileInfo(str(entry.path))), entry.title)
-            item.setData(Qt.UserRole, str(entry.path))
-            item.setToolTip(str(entry.path))
-            self.items.addItem(item)
+        if not entries:
+            self.empty_hint.show()
+            self.items.hide()
+        else:
+            self.empty_hint.hide()
+            self.items.show()
+            for entry in entries:
+                item = QListWidgetItem(provider.icon(QFileInfo(str(entry.path))), entry.title)
+                item.setData(Qt.UserRole, str(entry.path))
+                item.setToolTip(str(entry.path))
+                self.items.addItem(item)
 
     def selected_paths(self) -> list[Path]:
         selected = self.items.selectedItems()
@@ -206,10 +246,12 @@ class EntryPanel(QWidget):
             return
 
         menu = QMenu(self)
+        menu.setStyleSheet(get_menu_qss(self.settings.theme))
         open_action = menu.addAction("打开")
         reveal_action = menu.addAction("在资源管理器中显示")
         menu.addSeparator()
         category_menu = menu.addMenu("移动到分类")
+        category_menu.setStyleSheet(get_menu_qss(self.settings.theme))
         category_actions = {
             category_menu.addAction(category.title): category.id
             for category in self.categories
@@ -272,39 +314,47 @@ class EntryPanel(QWidget):
 class SearchPopup(QWidget):
     def __init__(self):
         super().__init__(None, Qt.Popup | Qt.FramelessWindowHint)
-        self.setMinimumWidth(360)
+        self.setObjectName("search_popup")
+        self.setMinimumWidth(380)
         self.setMaximumHeight(360)
-        self.apply_theme("dark")
         self.items = QListWidget(self)
         self.items.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.items.itemDoubleClicked.connect(self.open_item)
+
+        self.empty_hint = QLabel("未找到匹配的快捷方式", self)
+        self.empty_hint.setObjectName("search_empty_hint")
+        self.empty_hint.setAlignment(Qt.AlignCenter)
+        self.empty_hint.hide()
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(4)
+        layout.addWidget(self.empty_hint)
         layout.addWidget(self.items)
+        self.apply_theme("dark")
 
     def apply_theme(self, theme: str) -> None:
-        if theme == "dark":
-            background, foreground, selection = "#20232b", "#f4f5fa", "#42495b"
-        elif theme == "light":
-            background, foreground, selection = "#f6f7fb", "#242936", "#dce5f6"
-        else:
-            raise ValueError(f"Unsupported theme: {theme}")
-        self.setStyleSheet(
-            f"QWidget {{ background: {background}; color: {foreground}; border: 1px solid #42495b; border-radius: 10px; }}"
-            "QListWidget { border: 0; background: transparent; }"
-            "QListWidget::item { min-height: 36px; padding: 5px; }"
-            f"QListWidget::item:selected {{ background: {selection}; }}"
-        )
+        self.setStyleSheet(get_search_popup_qss(theme))
 
     def set_entries(self, entries: list[ShortcutEntry]) -> None:
         provider = QFileIconProvider()
         self.items.clear()
+        if not entries:
+            self.items.hide()
+            self.empty_hint.show()
+            self.resize(self.minimumWidth(), 96)
+            return
+
+        self.empty_hint.hide()
+        self.items.show()
         for entry in entries:
-            item = QListWidgetItem(provider.icon(QFileInfo(str(entry.path))), entry.title)
+            item_text = f"{entry.title}\n{entry.path.parent}"
+            item = QListWidgetItem(provider.icon(QFileInfo(str(entry.path))), item_text)
             item.setData(Qt.UserRole, str(entry.path))
             item.setToolTip(str(entry.path))
+            item.setSizeHint(QSize(self.minimumWidth() - 24, 42))
             self.items.addItem(item)
-        self.resize(self.minimumWidth(), min(360, max(64, len(entries) * 48 + 16)))
+        self.resize(self.minimumWidth(), min(360, max(72, len(entries) * 46 + 20)))
 
     def open_item(self, item: QListWidgetItem) -> None:
         open_entry(Path(item.data(Qt.UserRole)))

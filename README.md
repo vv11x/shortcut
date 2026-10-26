@@ -29,6 +29,13 @@ py -3.13 -m venv .venv
 
 构建安装包还需要安装 Inno Setup 7，并运行 `build.ps1`。输出为 `dist/release/shortcut-1.0.0.exe`。
 
+构建时会先运行单元测试，再启动打包后的程序检查 Dock 窗口和进程是否保持运行。也可单独运行：
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+.\.venv\Scripts\python.exe tests\smoke_packaged_exe.py
+```
+
 ## 品牌素材
 
 角色立绘和三视图位于 [`assets/branding`](assets/branding)，三视图可供用户参考和二创。64 张分类图标位于 [`assets/icons/shortcut-moe-v1`](assets/icons/shortcut-moe-v1)。素材来源记录见 [`assets/ASSET_SOURCES.md`](assets/ASSET_SOURCES.md)。

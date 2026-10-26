@@ -32,6 +32,10 @@ Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\THIRD_PARTY_NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\licenses\*.txt"; DestDir: "{app}\licenses"; Flags: ignoreversion
 
+[InstallDelete]
+Type: files; Name: "{app}\_internal\icuuc.dll"
+Type: files; Name: "{app}\_internal\icudt78.dll"
+
 [Icons]
 Name: "{autoprograms}\shortcut"; Filename: "{app}\shortcut.exe"
 Name: "{autoprograms}\shortcut\恢复桌面图标"; Filename: "{app}\restore-desktop.bat"; WorkingDir: "{app}"

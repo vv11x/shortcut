@@ -1,4 +1,5 @@
 import sys
+import logging
 
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
@@ -8,6 +9,7 @@ from shortcut.dock_window import ShortcutDock
 from shortcut.resources import character_sheet, mascot_image
 from shortcut.shell import open_local_file, open_recycle_bin
 from shortcut.storage import load_settings
+from shortcut.theme import get_menu_qss, get_tooltip_qss
 from shortcut.windows_desktop import DesktopIconController, SingleInstance, icons_visible, marker_path, recover_stale_session
 
 
@@ -15,6 +17,7 @@ def run_gui() -> int:
     instance = SingleInstance()
     if instance.already_running:
         return 0
+    logging.info("single-instance lock acquired")
     if marker_path().exists() and not recover_stale_session():
         raise RuntimeError("A desktop icon session belongs to a running shortcut process")
 
@@ -25,14 +28,18 @@ def run_gui() -> int:
     app.setWindowIcon(QIcon(str(mascot_image())))
 
     settings = load_settings()
+    app.setStyleSheet(get_tooltip_qss(settings.theme))
     catalog = DesktopCatalog(settings)
     catalog.refresh()
+    logging.info("desktop catalog loaded: %d entries", len(catalog.entries))
     desktop_icons = DesktopIconController()
     dock = ShortcutDock(settings, catalog, desktop_icons)
     dock.activate_display_mode()
+    logging.info("dock window shown")
 
     tray = QSystemTrayIcon(QIcon(str(mascot_image())), app)
     menu = QMenu()
+    menu.setStyleSheet(get_menu_qss(settings.theme))
     show_action = QAction("显示 shortcut", menu)
     show_action.triggered.connect(lambda: dock.set_display_mode("dock"))
     refresh_action = QAction("刷新桌面项目", menu)
@@ -60,7 +67,9 @@ def run_gui() -> int:
     menu.addAction(quit_action)
     tray.setContextMenu(menu)
     tray.show()
+    logging.info("system tray icon shown")
 
     app.aboutToQuit.connect(desktop_icons.stop)
     app.aboutToQuit.connect(instance.close)
+    logging.info("entering Qt event loop")
     return app.exec_()

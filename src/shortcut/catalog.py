@@ -52,7 +52,7 @@ class DesktopCatalog:
             )
 
     def entries_for(self, category: Category) -> list[ShortcutEntry]:
-        return self.groups[category.id]
+        return self.groups.get(category.id, [])
 
     def search(self, text: str) -> list[ShortcutEntry]:
         terms = [term.casefold() for term in text.split()]

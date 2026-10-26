@@ -7,7 +7,7 @@ data_files = [
 ]
 
 analysis = Analysis(
-    [str(project_root / "src" / "shortcut" / "entry.py")],
+    [str(project_root / "src" / "shortcut" / "__main__.py")],
     pathex=[str(project_root / "src")],
     binaries=[],
     datas=data_files,
@@ -53,9 +53,17 @@ unused_qt_binaries = {
     "libssl-3-x64.dll",
     "libcrypto-3-x64.dll",
 }
+incompatible_environment_binaries = {
+    # PyInstaller resolves these through PATH. The build environment has ICU 78
+    # from Poppler, whose versioned exports do not match Qt's unversioned ICU
+    # imports. Windows provides the ICU DLL used by the installed PySide6 build.
+    "icuuc.dll",
+    "icudt78.dll",
+}
 analysis.binaries = [
     item
     for item in analysis.binaries
+    if item[0].replace("\\", "/").casefold() not in incompatible_environment_binaries
     if (
         not item[0].replace("\\", "/").casefold().startswith("pyside6/plugins/")
         or item[0].replace("\\", "/").casefold() in qt_plugins

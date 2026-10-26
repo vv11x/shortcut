@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFileDialog,
     QFormLayout,
+    QGroupBox,
     QHBoxLayout,
     QInputDialog,
     QLabel,
@@ -21,25 +22,50 @@ from PySide6.QtWidgets import (
 )
 
 from shortcut.models import AppSettings, Category, CategoryRule
-from shortcut.resources import category_icon, category_icons
+from shortcut.resources import category_icon, category_icons, mascot_image
+from shortcut.theme import get_settings_qss
 
 
 class SettingsDialog(QDialog):
     def __init__(self, settings: AppSettings, parent: QWidget | None = None):
         super().__init__(parent)
         self.settings = deepcopy(settings)
+        self.setObjectName("settings_dialog")
         self.setWindowTitle("shortcut 设置")
-        self.setMinimumSize(720, 560)
-        self.setStyleSheet(
-            "QDialog { background: #20232b; color: #f4f5fa; }"
-            "QLineEdit, QComboBox, QListWidget { color: #f4f5fa; background: #303541; border: 1px solid #4b5261; border-radius: 6px; padding: 6px; }"
-            "QPushButton { color: #f4f5fa; background: #343946; border: 0; border-radius: 7px; padding: 7px 10px; }"
-            "QPushButton:hover { background: #42495b; }"
-        )
+        self.setMinimumSize(760, 620)
 
         root = QVBoxLayout(self)
-        content = QHBoxLayout()
-        root.addLayout(content, 1)
+        root.setContentsMargins(16, 14, 16, 14)
+        root.setSpacing(12)
+
+        # 顶部品牌标头
+        brand_header = QWidget()
+        brand_header.setObjectName("brand_header")
+        brand_layout = QHBoxLayout(brand_header)
+        brand_layout.setContentsMargins(12, 10, 12, 10)
+        brand_layout.setSpacing(12)
+
+        avatar_label = QLabel()
+        avatar_label.setPixmap(QIcon(str(mascot_image())).pixmap(36, 36))
+        brand_layout.addWidget(avatar_label)
+
+        title_col = QVBoxLayout()
+        title_col.setSpacing(2)
+        brand_title = QLabel("shortcut")
+        brand_title.setObjectName("brand_title")
+        brand_subtitle = QLabel("轻量桌面快捷方式管理器 · 极简分类与停靠")
+        brand_subtitle.setObjectName("brand_subtitle")
+        title_col.addWidget(brand_title)
+        title_col.addWidget(brand_subtitle)
+        brand_layout.addLayout(title_col)
+        brand_layout.addStretch()
+        root.addWidget(brand_header)
+
+        # 卡片 1: 分类与规则管理
+        category_group = QGroupBox("分类与规则管理")
+        category_group_layout = QHBoxLayout(category_group)
+        category_group_layout.setContentsMargins(12, 14, 12, 12)
+        category_group_layout.setSpacing(12)
 
         left = QVBoxLayout()
         self.category_list = QListWidget()
@@ -54,10 +80,12 @@ class SettingsDialog(QDialog):
         category_buttons.addWidget(add_button)
         category_buttons.addWidget(remove_button)
         left.addLayout(category_buttons)
-        content.addLayout(left, 1)
+        category_group_layout.addLayout(left, 1)
 
         form_widget = QWidget()
         form = QFormLayout(form_widget)
+        form.setContentsMargins(0, 0, 0, 0)
+        form.setSpacing(8)
         self.name_edit = QLineEdit()
         self.icon_combo = QComboBox()
         for icon_name, title in category_icons():
@@ -65,7 +93,7 @@ class SettingsDialog(QDialog):
         self.extensions_edit = QLineEdit()
         self.terms_edit = QLineEdit()
         self.kind_list = QListWidget()
-        self.kind_list.setMaximumHeight(92)
+        self.kind_list.setMaximumHeight(82)
         for kind, label in (("application", "应用"), ("file", "文件"), ("folder", "文件夹")):
             item = QListWidgetItem(label, self.kind_list)
             item.setData(Qt.UserRole, kind)
@@ -80,15 +108,22 @@ class SettingsDialog(QDialog):
         form.addRow("名称包含（逗号分隔）", self.terms_edit)
         form.addRow("项目类型", self.kind_list)
         form.addRow("匹配方式", self.rule_mode_combo)
-        form.addRow(QLabel("“其他”收纳未匹配规则的项目；其他空规则分类只接收手动归属。"))
-        content.addWidget(form_widget, 2)
+        tip_label = QLabel("“其他”收纳未匹配规则的项目；空规则分类只接收手动归属。")
+        tip_label.setObjectName("form_tip")
+        form.addRow(tip_label)
+        category_group_layout.addWidget(form_widget, 2)
+        root.addWidget(category_group, 1)
 
-        global_form = QFormLayout()
+        # 卡片 2: 偏好与系统设置
+        global_group = QGroupBox("偏好与系统设置")
+        global_form = QFormLayout(global_group)
+        global_form.setContentsMargins(12, 14, 12, 12)
+        global_form.setSpacing(8)
         self.edge_combo = QComboBox()
         for edge, label in (("top", "顶部"), ("bottom", "底部"), ("left", "左侧"), ("right", "右侧")):
             self.edge_combo.addItem(label, edge)
         self.display_combo = QComboBox()
-        self.display_combo.addItem("Dock 侧栏", "dock")
+        self.display_combo.addItem("shortcut 停靠栏", "dock")
         self.display_combo.addItem("桌面分类盒", "desktop")
         self.view_combo = QComboBox()
         self.view_combo.addItem("图标", "icons")
@@ -102,19 +137,25 @@ class SettingsDialog(QDialog):
         archiver_button = QPushButton("选择")
         archiver_button.clicked.connect(self.choose_archiver)
         archiver_row.addWidget(archiver_button)
-        global_form.addRow("Dock 位置", self.edge_combo)
+        global_form.addRow("停靠位置", self.edge_combo)
         global_form.addRow("显示方式", self.display_combo)
         global_form.addRow("项目视图", self.view_combo)
-        global_form.addRow("外观", self.theme_combo)
+        global_form.addRow("外观主题", self.theme_combo)
         global_form.addRow("7-Zip 命令行工具", archiver_row)
         hidden_row = QHBoxLayout()
         hidden_button = QPushButton("管理已隐藏项目…")
         hidden_button.clicked.connect(self.manage_hidden_entries)
         hidden_row.addWidget(hidden_button)
         global_form.addRow("快捷方式列表", hidden_row)
-        root.addLayout(global_form)
+        root.addWidget(global_group)
 
+        # 底部操作栏
         buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
+        save_btn = buttons.button(QDialogButtonBox.Save)
+        save_btn.setText("保存更改")
+        save_btn.setObjectName("primary_button")
+        cancel_btn = buttons.button(QDialogButtonBox.Cancel)
+        cancel_btn.setText("取消")
         buttons.accepted.connect(self.accept_changes)
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
@@ -124,6 +165,17 @@ class SettingsDialog(QDialog):
         self.display_combo.setCurrentIndex(self.display_combo.findData(self.settings.display_mode))
         self.view_combo.setCurrentIndex(self.view_combo.findData(self.settings.view_mode))
         self.theme_combo.setCurrentIndex(self.theme_combo.findData(self.settings.theme))
+
+        self.apply_theme(self.settings.theme)
+        self.theme_combo.currentIndexChanged.connect(self.on_theme_changed)
+
+    def apply_theme(self, theme: str) -> None:
+        self.setStyleSheet(get_settings_qss(theme))
+
+    def on_theme_changed(self) -> None:
+        theme = self.theme_combo.currentData()
+        if theme:
+            self.apply_theme(theme)
 
     def populate_categories(self, selected_id: str | None = None) -> None:
         self.category_list.blockSignals(True)
