@@ -1,0 +1,16 @@
+.venv/
+*.egg-info/
+__pycache__/
+*.py[cod]
+build/
+dist/
+*.spec
+!shortcut.spec
+*.log
+*.dmp
+.idea/
+.vscode/
+Thumbs.db
+desktop.ini
+/PRODUCT_REQUIREMENTS.md
+/SOURCE_AUDIT.md
