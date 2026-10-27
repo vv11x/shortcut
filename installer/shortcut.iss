@@ -1,43 +1,59 @@
 #define AppName "shortcut"
-#define AppVersion "1.0.0"
+#define AppVersion "1.1.41"
+#define AppExeName "shortcut.exe"
+#ifndef DistributionDirectory
+  #error Use installer/build.ps1 to provide DistributionDirectory.
+#endif
 
 [Setup]
-AppId={{A6A5D91C-3C5D-4CB2-89C3-A9807B6A1699}
+AppId={{38C12D13-AB04-4E78-9FD7-6177838AB0AB}
 AppName={#AppName}
 AppVersion={#AppVersion}
+AppVerName={#AppName} {#AppVersion}
 AppPublisher=vv11x
+AppPublisherURL=https://github.com/vv11x/shortcut
+AppSupportURL=https://github.com/vv11x/shortcut/issues
+AppUpdatesURL=https://github.com/vv11x/shortcut/releases/latest
 DefaultDirName={localappdata}\Programs\shortcut
 DefaultGroupName=shortcut
 DisableProgramGroupPage=yes
+DisableDirPage=yes
+UsePreviousAppDir=yes
 PrivilegesRequired=lowest
-ArchitecturesInstallIn64BitMode=x64compatible
-OutputDir=..\dist\release
-OutputBaseFilename=shortcut-{#AppVersion}
+SetupArchitecture=x64
+ArchitecturesAllowed=x64os
+ArchitecturesInstallIn64BitMode=x64os
+MinVersion=10.0
+OutputDir=F:\shortcut-output\dist
+OutputBaseFilename=shortcut-v{#AppVersion}
 SetupIconFile=..\assets\branding\shortcut.ico
+UninstallDisplayName=shortcut {#AppVersion}
 UninstallDisplayIcon={app}\shortcut.exe
-Compression=lzma2
-SolidCompression=yes
+LicenseFile=..\LICENSE
 WizardStyle=modern
-
-[Tasks]
-Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: "其他快捷方式："; Flags: unchecked
+Compression=lzma2/ultra64
+SolidCompression=yes
+CloseApplications=yes
+RestartApplications=no
+SetupLogging=yes
+VersionInfoVersion=1.1.41.0
+VersionInfoCompany=vv11x
+VersionInfoDescription=shortcut Windows desktop organizer
+VersionInfoCopyright=Copyright (C) 2026 vv11x
 
 [Languages]
-Name: "chinesesimp"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+
+[Tasks]
+Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: "附加快捷方式："; Flags: unchecked
 
 [Files]
-Source: "..\dist\shortcut\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "restore-desktop.bat"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\THIRD_PARTY_NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\licenses\*.txt"; DestDir: "{app}\licenses"; Flags: ignoreversion
-
-[InstallDelete]
-Type: files; Name: "{app}\_internal\icuuc.dll"
-Type: files; Name: "{app}\_internal\icudt78.dll"
+Source: "{#DistributionDirectory}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\shortcut"; Filename: "{app}\shortcut.exe"
-Name: "{autoprograms}\shortcut\恢复桌面图标"; Filename: "{app}\restore-desktop.bat"; WorkingDir: "{app}"
-Name: "{autodesktop}\shortcut"; Filename: "{app}\shortcut.exe"; Tasks: desktopicon
+Name: "{autoprograms}\shortcut"; Filename: "{app}\{#AppExeName}"; WorkingDir: "{app}"
+Name: "{autoprograms}\shortcut\恢复桌面图标"; Filename: "{app}\{#AppExeName}"; Parameters: "--restore-desktop"; WorkingDir: "{app}"
+Name: "{autodesktop}\shortcut"; Filename: "{app}\{#AppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon
 
+[Run]
+Filename: "{app}\{#AppExeName}"; Description: "启动 shortcut"; WorkingDir: "{app}"; Flags: postinstall nowait skipifsilent

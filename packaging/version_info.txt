@@ -1,0 +1,30 @@
+# -*- coding: utf-8 -*-
+# PyInstaller 版本资源文件：打包时写进 exe 的属性里
+VSVersionInfo(
+  ffi=FixedFileInfo(
+    filevers=(1, 1, 41, 0),
+    prodvers=(1, 1, 41, 0),
+    mask=0x3f,
+    flags=0x0,
+    OS=0x40004,
+    fileType=0x1,
+    subtype=0x0,
+    date=(0, 0)
+  ),
+  kids=[
+    StringFileInfo([
+      StringTable(
+        '080404b0',
+        [StringStruct('CompanyName', '大肥鱼'),
+         StringStruct('FileDescription', 'shortcut 桌面快捷方式管理'),
+         StringStruct('FileVersion', '1.1.41.0'),
+         StringStruct('InternalName', 'shortcut'),
+         StringStruct('LegalCopyright', 'WWQ'),
+         StringStruct('LegalTrademarks', '大肥鱼 WWQ'),
+         StringStruct('OriginalFilename', 'shortcut.exe'),
+         StringStruct('ProductName', 'shortcut'),
+         StringStruct('ProductVersion', '1.1.41.0')])
+    ]),
+    VarFileInfo([VarStruct('Translation', [2052, 1200])])
+  ]
+)
